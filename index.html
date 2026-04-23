@@ -179,7 +179,7 @@
     <!-- ============ KPI CARDS ============ -->
     <div class="kpi-row" id="kpi-row"><!-- injected --></div>
 
-    <!-- ============ CHARTS (6 reports per PRD) ============ -->
+    <!-- ============ CHARTS (7 reports — 3 rows paired + 1 standalone) ============ -->
     <div class="chart-grid" id="chart-grid"><!-- injected --></div>
 
     <!-- ============ RELATED PRODUCTS (cross-sell touchpoints) ============ -->
@@ -399,7 +399,11 @@ for (let i = DAYS - 1; i >= 0; i--) {
   const upsellRevenue = upsellOrders * (35 + Math.round(rand() * 50));
   const cancelValue   = cancelled * (65 + Math.round(rand() * 80));
   const pageViews     = Math.round(totalEdited / (0.12 + rand() * 0.04));
-  daily.push({ date, typeCounts, totalEdited, cancelled, rescueOrders, rescueRevenue, upsellOrders, upsellRevenue, cancelValue, pageViews });
+  // Downstream correlation signals — scaled off totalEdited so trends co-move plausibly.
+  const returns           = Math.max(0, Math.round(totalEdited * (0.08 + rand() * 0.06)));  //  8–14% of edits
+  const failedDelivery    = Math.max(0, Math.round(totalEdited * (0.05 + rand() * 0.05)));  //  5–10%
+  const returnedToSender  = Math.max(0, Math.round(failedDelivery * (0.35 + rand() * 0.30))); // 35–65% of failed
+  daily.push({ date, typeCounts, totalEdited, cancelled, rescueOrders, rescueRevenue, upsellOrders, upsellRevenue, cancelValue, pageViews, returns, failedDelivery, returnedToSender });
 }
 
 // Aggregators
@@ -582,16 +586,20 @@ function bucketSnapshot(rows, granularity) {
     const b = buckets.get(k) || {
       totalEdited: 0, rescueRevenue: 0, upsellRevenue: 0, upsellOrders: 0,
       pageViews: 0, cancelled: 0, rescueOrders: 0, cancelValue: 0,
+      returns: 0, failedDelivery: 0, returnedToSender: 0,
       typeCounts: Object.fromEntries(ORDER_EDIT_TYPES.map(t => [t, 0])),
     };
-    b.totalEdited    += r.totalEdited;
-    b.rescueRevenue  += r.rescueRevenue;
-    b.upsellRevenue  += r.upsellRevenue;
-    b.upsellOrders   += r.upsellOrders;
-    b.pageViews      += r.pageViews;
-    b.cancelled      += r.cancelled;
-    b.rescueOrders   += r.rescueOrders;
-    b.cancelValue    += r.cancelValue;
+    b.totalEdited      += r.totalEdited;
+    b.rescueRevenue    += r.rescueRevenue;
+    b.upsellRevenue    += r.upsellRevenue;
+    b.upsellOrders     += r.upsellOrders;
+    b.pageViews        += r.pageViews;
+    b.cancelled        += r.cancelled;
+    b.rescueOrders     += r.rescueOrders;
+    b.cancelValue      += r.cancelValue;
+    b.returns          += r.returns;
+    b.failedDelivery   += r.failedDelivery;
+    b.returnedToSender += r.returnedToSender;
     for (const t of ORDER_EDIT_TYPES) b.typeCounts[t] += (r.typeCounts[t] || 0);
     buckets.set(k, b);
   });
@@ -684,47 +692,6 @@ function drawEditsOverTime(canvasId, granularity) {
                 `Rescue revenue: ${fmtMoney(b.rescueRevenue)}`,
                 `Upsell revenue: ${fmtMoney(b.upsellRevenue)}`,
                 `Upsell conversion rate: ${fmtPct(conv)}`,
-              ];
-            },
-          },
-        },
-      },
-    },
-  });
-}
-
-/* ------- Report: §9 Cancellation order over time (area) ------- */
-function drawCancelOverTime(canvasId, granularity) {
-  const { labels, values } = aggregate(daily, granularity, r => r.cancelled);
-  const snap = bucketSnapshot(daily, granularity);
-  if (charts[canvasId]) charts[canvasId].destroy();
-  const ctx = document.getElementById(canvasId);
-  charts[canvasId] = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Cancellation order count',
-        data: values,
-        borderColor: '#F79009',
-        backgroundColor: 'rgba(247,144,9,0.12)',
-        fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 6, borderWidth: 2,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { x: { grid: { display: false }, ticks: tickCfg }, y: { beginAtZero: true, grid: gridCfg, ticks: tickCfg } },
-      plugins: {
-        tooltip: {
-          displayColors: false,
-          callbacks: {
-            title: (items) => items[0].label,
-            label: (ctx) => {
-              const b = snap.get(ctx.label) || { cancelled: 0, totalEdited: 0 };
-              const rate = b.totalEdited ? b.cancelled / b.totalEdited : 0;
-              return [
-                `Cancellation order count: ${fmtInt(b.cancelled)}`,
-                `Cancellation order rate: ${fmtPct(rate)}`,
               ];
             },
           },
@@ -907,6 +874,71 @@ function drawEditedByType(canvasId, granularity) {
   });
 }
 
+/* ------- Shared multi-line correlation chart builder -------
+   Used by the two "Correlation: ..." reports. Each series shares
+   the same x-axis bucketing as the over-time reports. Legend is
+   enabled (site default is off) so users can toggle series. */
+function drawMultiLineCorrelation(canvasId, granularity, series) {
+  const snap = bucketSnapshot(daily, granularity);
+  const labels = [...snap.keys()];
+  const datasets = series.map(s => ({
+    label: s.label,
+    data: labels.map(k => s.value(snap.get(k))),
+    borderColor: s.color,
+    backgroundColor: s.color,
+    pointBackgroundColor: s.color,
+    borderWidth: 2,
+    tension: 0.35,
+    pointRadius: 2,
+    pointHoverRadius: 5,
+    fill: false,
+  }));
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { grid: { display: false }, ticks: tickCfg },
+        y: { beginAtZero: true, grid: gridCfg, ticks: tickCfg },
+      },
+      plugins: {
+        legend: {
+          display: true, position: 'bottom',
+          labels: { boxWidth: 10, boxHeight: 10, padding: 10, font: { size: 11 }, usePointStyle: true, pointStyle: 'line' },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => `${ctx.dataset.label}: ${fmtInt(ctx.parsed.y)}`,
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ------- Report: Correlation — Order edits vs returns & cancellations (multi-line) ------- */
+function drawCorrEditReturnCancel(canvasId, granularity) {
+  drawMultiLineCorrelation(canvasId, granularity, [
+    { label: 'Order edited count', color: '#2E5BFF', value: b => b.totalEdited },
+    { label: 'Return number',      color: '#F79009', value: b => b.returns },
+    { label: 'Cancel number',      color: '#98A2B3', value: b => b.cancelled },
+  ]);
+}
+
+/* ------- Report: Correlation — Order edits vs failed delivery & RTS (multi-line) ------- */
+function drawCorrEditFailedRTS(canvasId, granularity) {
+  drawMultiLineCorrelation(canvasId, granularity, [
+    { label: 'Order edited count',             color: '#2E5BFF', value: b => b.totalEdited },
+    { label: 'Failed delivery attempt number', color: '#F04438', value: b => b.failedDelivery },
+    { label: 'Returned to sender number',      color: '#7A5AF8', value: b => b.returnedToSender },
+  ]);
+}
+
 /* =========================================================
    REPORT CONFIG  (order must match the chart-grid layout)
    ========================================================= */
@@ -932,38 +964,6 @@ const REPORTS = {
         totalEdited:   rows.reduce((s, r) => s + r.totalEdited, 0),
         rescueRevenue: rows.reduce((s, r) => s + r.rescueRevenue, 0),
         upsellRevenue: rows.reduce((s, r) => s + r.upsellRevenue, 0),
-      };
-      return [summary, ...rows];
-    },
-  },
-
-  'cancel-over-time': {
-    title: 'Cancellation order over time',
-    subtitle: 'Order.Cancel successful orders by period',
-    hasGranularity: true,
-    chartFn: drawCancelOverTime,
-    tableColumns: [
-      { id: 'bucket',       label: 'Date',                        format: 'text',  dimension: true },
-      { id: 'cancelled',    label: 'Total canceled orders',       format: 'int',   drill: true },
-      { id: 'cancelValue',  label: 'Total canceled order value',  format: 'money' },
-      { id: 'cancelRate',   label: 'Canceled rate',               format: 'pct' },
-    ],
-    tableRows: (granularity) => {
-      const snap = bucketSnapshot(daily, granularity);
-      const rows = [...snap.entries()].map(([bucket, b]) => ({
-        bucket,
-        cancelled: b.cancelled,
-        cancelValue: b.cancelValue,
-        cancelRate: b.totalEdited ? b.cancelled / b.totalEdited : 0,
-      }));
-      const totalCancelled  = rows.reduce((s, r) => s + r.cancelled, 0);
-      const totalValue      = rows.reduce((s, r) => s + r.cancelValue, 0);
-      const totalEdited     = sumField(daily, 'totalEdited');
-      const summary = {
-        bucket: 'Summary',
-        cancelled: totalCancelled,
-        cancelValue: totalValue,
-        cancelRate: totalEdited ? totalCancelled / totalEdited : 0,
       };
       return [summary, ...rows];
     },
@@ -1091,24 +1091,84 @@ const REPORTS = {
       return [summary, ...rows];
     },
   },
+
+  'corr-edit-return-cancel': {
+    title: 'Correlation: order edits vs returns & cancellations',
+    subtitle: 'Edited orders alongside downstream return and cancel volume',
+    hasGranularity: true,
+    chartFn: drawCorrEditReturnCancel,
+    tableColumns: [
+      { id: 'bucket',      label: 'Date',                  format: 'text', dimension: true },
+      { id: 'totalEdited', label: 'Order edited count',    format: 'int',  drill: true },
+      { id: 'returns',     label: 'Return number',         format: 'int',  drill: true },
+      { id: 'cancelled',   label: 'Cancel number',         format: 'int',  drill: true },
+    ],
+    tableRows: (granularity) => {
+      const snap = bucketSnapshot(daily, granularity);
+      const rows = [...snap.entries()].map(([bucket, b]) => ({
+        bucket,
+        totalEdited: b.totalEdited,
+        returns:     b.returns,
+        cancelled:   b.cancelled,
+      }));
+      const summary = {
+        bucket: 'Summary',
+        totalEdited: rows.reduce((s, r) => s + r.totalEdited, 0),
+        returns:     rows.reduce((s, r) => s + r.returns, 0),
+        cancelled:   rows.reduce((s, r) => s + r.cancelled, 0),
+      };
+      return [summary, ...rows];
+    },
+  },
+
+  'corr-edit-failed-rts': {
+    title: 'Correlation: order edits vs failed delivery & RTS',
+    subtitle: 'Edited orders alongside failed delivery attempts and returned-to-sender volume',
+    hasGranularity: true,
+    chartFn: drawCorrEditFailedRTS,
+    tableColumns: [
+      { id: 'bucket',           label: 'Date',                             format: 'text', dimension: true },
+      { id: 'totalEdited',      label: 'Order edited count',               format: 'int',  drill: true },
+      { id: 'failedDelivery',   label: 'Failed delivery attempt number',   format: 'int',  drill: true },
+      { id: 'returnedToSender', label: 'Returned to sender number',        format: 'int',  drill: true },
+    ],
+    tableRows: (granularity) => {
+      const snap = bucketSnapshot(daily, granularity);
+      const rows = [...snap.entries()].map(([bucket, b]) => ({
+        bucket,
+        totalEdited:      b.totalEdited,
+        failedDelivery:   b.failedDelivery,
+        returnedToSender: b.returnedToSender,
+      }));
+      const summary = {
+        bucket: 'Summary',
+        totalEdited:      rows.reduce((s, r) => s + r.totalEdited, 0),
+        failedDelivery:   rows.reduce((s, r) => s + r.failedDelivery, 0),
+        returnedToSender: rows.reduce((s, r) => s + r.returnedToSender, 0),
+      };
+      return [summary, ...rows];
+    },
+  },
 };
 
 // Keep a stable order for chart grid rendering.
-// Paired layout (2 cols): over-time chart on the left, its breakdown on the right.
-//   Row 1: Order edits  +  Edited order by type
-//   Row 2: Upsell revenue  +  Top 5 upsell product
-//   Row 3: Cancellation    +  Top 5 cancellation reason
+// Paired layout (2 cols):
+//   Row 1: Order edits over time   +  Edited order by type (stacked column)
+//   Row 2: Upsell revenue over time +  Top 5 upsell product
+//   Row 3: Correlation: edits/returns/cancels  +  Correlation: edits/failed delivery/RTS
+//   Row 4: Top 5 cancellation reason (standalone — paired chart was removed)
 const REPORT_ORDER = [
   'edits-over-time',
   'edited-by-type',
   'upsell-over-time',
   'upsell-product',
-  'cancel-over-time',
+  'corr-edit-return-cancel',
+  'corr-edit-failed-rts',
   'cancel-reason',
 ];
 
 /* =========================================================
-   DASHBOARD: build 6 chart cards
+   DASHBOARD: build chart cards
    ========================================================= */
 function renderChartGrid() {
   const grid = document.getElementById('chart-grid');
@@ -1387,14 +1447,17 @@ function applyFilters() {
   const factor = 0.65 + Math.random() * 0.55;
   daily.forEach((d, i) => {
     const o = DAILY_ORIGINAL[i];
-    d.totalEdited   = Math.max(1, Math.round(o.totalEdited   * factor));
-    d.rescueRevenue = Math.max(1, Math.round(o.rescueRevenue * factor));
-    d.upsellRevenue = Math.max(1, Math.round(o.upsellRevenue * factor));
-    d.cancelled     = Math.max(0, Math.round(o.cancelled     * factor));
-    d.rescueOrders  = Math.max(0, Math.round(o.rescueOrders  * factor));
-    d.upsellOrders  = Math.max(0, Math.round(o.upsellOrders  * factor));
-    d.cancelValue   = Math.max(0, Math.round(o.cancelValue   * factor));
-    d.pageViews     = Math.max(1, Math.round(o.pageViews     * factor));
+    d.totalEdited      = Math.max(1, Math.round(o.totalEdited      * factor));
+    d.rescueRevenue    = Math.max(1, Math.round(o.rescueRevenue    * factor));
+    d.upsellRevenue    = Math.max(1, Math.round(o.upsellRevenue    * factor));
+    d.cancelled        = Math.max(0, Math.round(o.cancelled        * factor));
+    d.rescueOrders     = Math.max(0, Math.round(o.rescueOrders     * factor));
+    d.upsellOrders     = Math.max(0, Math.round(o.upsellOrders     * factor));
+    d.cancelValue      = Math.max(0, Math.round(o.cancelValue      * factor));
+    d.pageViews        = Math.max(1, Math.round(o.pageViews        * factor));
+    d.returns          = Math.max(0, Math.round(o.returns          * factor));
+    d.failedDelivery   = Math.max(0, Math.round(o.failedDelivery   * factor));
+    d.returnedToSender = Math.max(0, Math.round(o.returnedToSender * factor));
     for (const t of ORDER_EDIT_TYPES) d.typeCounts[t] = Math.max(0, Math.round(o.typeCounts[t] * factor));
   });
   Object.assign(current, periodTotals(daily));
