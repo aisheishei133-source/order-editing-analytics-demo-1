@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Order editing analytics · Feature demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --surface: #FFFFFF;
+    --border: #E4E7EC;
+    --border-strong: #D0D5DD;
+    --text-primary: #0F172A;
+    --text-secondary: #475467;
+    --text-tertiary: #98A2B3;
+    --brand: #2E5BFF;
+    --brand-soft: #E8EEFF;
+    --success: #12B76A;
+    --success-soft: #E7F8F0;
+    --danger: #F04438;
+    --danger-soft: #FEECEB;
+    --warning: #F79009;
+    --purple: #7F56D9;
+    --teal: #06AED4;
+    --pink: #EE46BC;
+    --shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06);
+    --shadow-lg: 0 4px 8px -2px rgba(16,24,40,0.08), 0 2px 4px -2px rgba(16,24,40,0.04);
+    --shadow-xl: 0 20px 40px -12px rgba(16,24,40,0.2), 0 8px 16px -8px rgba(16,24,40,0.1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; line-height: 1.5; }
+
+  .app { max-width: 1440px; margin: 0 auto; padding: 24px 32px 48px; }
+
+  /* ---------- Header ---------- */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
+  .page-title h1 { margin: 0; font-size: 22px; font-weight: 600; color: var(--text-primary); }
+  .page-title .breadcrumb { font-size: 13px; color: var(--text-tertiary); margin-bottom: 4px; }
+  .page-title .breadcrumb a { color: var(--text-tertiary); text-decoration: none; }
+  .page-title .title-row { display: flex; align-items: center; gap: 12px; }
+  .back-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; color: var(--text-primary); flex-shrink: 0; }
+  .back-btn:hover { background: #F9FAFB; }
+  .page-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; transition: all .15s; }
+  .btn:hover { background: #F9FAFB; }
+  .btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn-primary:hover { background: #244CD3; }
+  .btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; }
+
+  /* ---------- Filter bar ---------- */
+  .filter-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; box-shadow: var(--shadow); margin-bottom: 20px; }
+  .filter-group { display: flex; flex-direction: column; gap: 6px; min-width: 170px; }
+  .filter-group.grow { flex: 1 1 200px; }
+  .filter-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  .filter-control { position: relative; }
+  .filter-control select, .filter-control input { width: 100%; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); font-size: 13px; color: var(--text-primary); cursor: pointer; appearance: none; -webkit-appearance: none; }
+  .filter-control select { padding-right: 30px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  .filter-control select:focus, .filter-control input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(46,91,255,0.12); }
+  .filter-actions { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+
+  /* ---------- KPI cards ---------- */
+  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; box-shadow: var(--shadow); cursor: pointer; transition: all .15s; position: relative; }
+  .kpi-card:hover { box-shadow: var(--shadow-lg); border-color: var(--brand); transform: translateY(-1px); }
+  .kpi-card .kpi-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .kpi-card .kpi-value { font-size: 28px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 10px; }
+  .kpi-card .kpi-compare { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .kpi-card .kpi-trend { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .kpi-card .kpi-trend.up { color: var(--success); background: var(--success-soft); }
+  .kpi-card .kpi-trend.down { color: var(--danger); background: var(--danger-soft); }
+  .info-icon { display: inline-flex; width: 14px; height: 14px; color: var(--text-tertiary); cursor: help; }
+
+  /* ---------- Chart grid ---------- */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; min-height: 360px; position: relative; }
+  .chart-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+  .chart-title { font-size: 15px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+  .chart-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .chart-tools { display: flex; align-items: center; gap: 8px; }
+  .granularity-toggle { display: inline-flex; background: #F2F4F7; border-radius: 6px; padding: 2px; }
+  .granularity-toggle button { border: 0; background: transparent; padding: 4px 10px; font-size: 12px; font-weight: 500; color: var(--text-secondary); border-radius: 4px; cursor: pointer; }
+  .granularity-toggle button.active { background: #fff; color: var(--text-primary); box-shadow: var(--shadow); }
+  .expand-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid transparent; background: transparent; border-radius: 6px; color: var(--text-tertiary); cursor: pointer; transition: all .15s; }
+  .expand-btn:hover { background: #F2F4F7; color: var(--text-primary); }
+  .chart-body { flex: 1; position: relative; min-height: 260px; }
+  canvas { max-height: 280px; }
+
+  /* ---------- Report view (level 2) ---------- */
+  .report-view .chart-card { min-height: 440px; }
+  .report-view canvas { max-height: 380px; }
+  .report-view .chart-card { margin-bottom: 16px; }
+
+  /* ---------- Detail table ---------- */
+  .detail-table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+  .detail-table-card .dt-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .detail-table-card .dt-header .dt-title { font-size: 15px; font-weight: 600; }
+  .detail-table-card .dt-header .dt-hint { font-size: 12px; color: var(--text-tertiary); }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th, .data-table td { text-align: left; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .data-table thead th { font-size: 12px; font-weight: 500; color: var(--text-secondary); background: #FAFAFB; position: sticky; top: 0; z-index: 1; }
+  .data-table thead th .sort-icon { display: inline-flex; margin-left: 4px; vertical-align: middle; color: var(--text-tertiary); }
+  .data-table tbody tr.summary-row { background: #FAFBFD; font-weight: 600; }
+  .data-table tbody tr.summary-row td { color: var(--text-primary); }
+  .data-table tbody tr:hover:not(.summary-row) { background: #F9FAFB; }
+  .drill-link { color: var(--brand); text-decoration: underline; cursor: pointer; background: none; border: 0; padding: 0; font: inherit; }
+  .drill-link:hover { color: #244CD3; }
+  .cell-muted { color: var(--text-tertiary); }
+
+  /* ---------- Drawer ---------- */
+  .drawer-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.35); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 50; }
+  .drawer-overlay.visible { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; left: 0; right: 0; bottom: 0; height: 72vh; background: var(--surface); border-top-left-radius: 14px; border-top-right-radius: 14px; box-shadow: var(--shadow-xl); transform: translateY(100%); transition: transform .25s ease-out; z-index: 51; display: flex; flex-direction: column; }
+  .drawer.visible { transform: translateY(0); }
+  .drawer-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+  .drawer-header .drawer-title { font-size: 17px; font-weight: 600; }
+  .drawer-header .drawer-context { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .drawer-header .drawer-actions { display: flex; align-items: center; gap: 8px; }
+  .drawer-close { border: 0; background: transparent; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; }
+  .drawer-close:hover { background: #F2F4F7; }
+  .drawer-body { flex: 1; overflow: auto; }
+  .drawer-footer { padding: 10px 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-tertiary); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-shrink: 0; background: #FAFBFD; }
+  .placeholder-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #FFF7E6; border: 1px dashed #FEDF89; border-radius: 999px; color: #93370D; font-size: 11px; }
+
+  /* ---------- Misc ---------- */
+  .section-note { font-size: 12px; color: var(--text-tertiary); margin-top: 8px; }
+  .status-banner { background: #FFFAEB; border: 1px solid #FEDF89; color: #93370D; padding: 8px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .status-banner .dot { width: 8px; height: 8px; background: var(--warning); border-radius: 50%; flex-shrink: 0; }
+  .hidden { display: none !important; }
+
+  /* ---------- Related products (cross-sell touchpoints) ---------- */
+  .related-section-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin: 32px 0 12px; }
+  .related-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .related-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); display: flex; align-items: flex-start; gap: 14px; cursor: pointer; transition: all .15s; text-align: left; font: inherit; color: inherit; }
+  .related-tile:hover { border-color: var(--brand); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+  .related-tile:focus-visible { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(46,91,255,0.15); }
+  .app-icon { flex-shrink: 0; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+  .app-icon svg { width: 100%; height: 100%; display: block; }
+  .related-tile .tile-body { flex: 1; min-width: 0; }
+  .related-tile .tile-name { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .related-tile .tile-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .related-tile .tile-open { margin-top: 10px; font-size: 13px; font-weight: 500; color: var(--brand); display: inline-flex; align-items: center; gap: 4px; }
+  .related-tile:hover .tile-open { text-decoration: underline; }
+
+  @media (max-width: 1100px) { .chart-grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2, 1fr); } .related-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- =================================================
+       DASHBOARD VIEW  (level 1)
+       ================================================= -->
+  <div id="dashboard-view">
+    <div class="page-header">
+      <div class="page-title">
+        <div class="breadcrumb"><a href="#">Analytics</a> / <span>Order editing</span></div>
+        <h1>Order editing analytics</h1>
+      </div>
+      <div class="page-actions">
+        <button class="btn">Copilot summary</button>
+        <button class="btn">Email dashboard</button>
+        <button class="btn btn-primary">Export PDF</button>
+      </div>
+    </div>
+
+    <div class="status-banner">
+      <span class="dot"></span>
+      <span><strong>Feature demo</strong> · Built for eng &amp; design alignment based on the order editing analytics PRD. Data is mocked for illustration. Click the ↗ icon on any chart to open its detail report; click a measurement in a detail table to drill into orders.</span>
+    </div>
+
+    <!-- ============ FILTERS (dashboard) ============ -->
+    <div class="filter-bar" id="dashboard-filters">
+      <!-- injected by renderFilters() -->
+    </div>
+
+    <!-- ============ KPI CARDS ============ -->
+    <div class="kpi-row" id="kpi-row"><!-- injected --></div>
+
+    <!-- ============ CHARTS (6 reports per PRD) ============ -->
+    <div class="chart-grid" id="chart-grid"><!-- injected --></div>
+
+    <!-- ============ RELATED PRODUCTS (cross-sell touchpoints) ============ -->
+    <div class="related-section-title">Related products</div>
+    <div class="related-row">
+      <button class="related-tile" data-cross-cta="tracking" type="button">
+        <div class="app-icon" aria-hidden="true">
+          <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path fill="#FC5D24" d="M8 3h24a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H16l-7 7 2-7H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z"/>
+            <g stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 11 27.5 15 27.5 23 20 27 12.5 23 12.5 15z"/>
+              <path d="M20 19v8M20 19l-7.5-4M20 19l7.5-4"/>
+            </g>
+          </svg>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">AfterShip Tracking</div>
+          <div class="tile-desc">See how order editing helps you reduce the failed delivery attempt rate.</div>
+          <div class="tile-open">
+            Open dashboard
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </div>
+        </div>
+      </button>
+      <button class="related-tile" data-cross-cta="returns" type="button">
+        <div class="app-icon" aria-hidden="true">
+          <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path fill="#FC5D24" d="M8 3h24a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H16l-7 7 2-7H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z"/>
+            <g stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 11 27.5 15 27.5 23 20 27 12.5 23 12.5 15z"/>
+              <path d="M20 19v8M20 19l-7.5-4M20 19l7.5-4"/>
+            </g>
+          </svg>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">AfterShip Returns</div>
+          <div class="tile-desc">See how order editing helps you reduce the return rate.</div>
+          <div class="tile-open">
+            Open dashboard
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- =================================================
+       REPORT VIEW  (level 2, hidden by default)
+       ================================================= -->
+  <div id="report-view" class="report-view hidden">
+    <div class="page-header">
+      <div class="page-title" style="display:flex;align-items:center;gap:12px;">
+        <button class="back-btn" id="report-back" title="Back to dashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h1 id="report-title">Report</h1>
+      </div>
+      <div class="page-actions">
+        <button class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Email report</button>
+        <button class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export CSV</button>
+      </div>
+    </div>
+
+    <!-- replicated filter bar -->
+    <div class="filter-bar" id="report-filters">
+      <!-- injected -->
+    </div>
+
+    <!-- full-width chart card -->
+    <div class="chart-card" id="report-chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title" id="report-chart-title"></div>
+          <div class="chart-subtitle" id="report-chart-subtitle"></div>
+        </div>
+        <div class="chart-tools" id="report-chart-tools"><!-- optional granularity toggle --></div>
+      </div>
+      <div class="chart-body" style="min-height:340px;"><canvas id="c-report"></canvas></div>
+    </div>
+
+    <!-- summary detail table -->
+    <div class="detail-table-card">
+      <div class="dt-header">
+        <div>
+          <div class="dt-title">Detail table</div>
+          <div class="dt-hint">Click any underlined measurement to drill into orders.</div>
+        </div>
+        <div class="dt-hint"><span class="placeholder-pill">Page size · xx rows</span></div>
+      </div>
+      <div style="overflow:auto;max-height:420px;">
+        <table class="data-table" id="report-detail-table">
+          <!-- injected -->
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================
+       DRILL-TO-DETAILS DRAWER
+       ================================================= -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <div class="drawer" id="drill-drawer" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-title">Details</div>
+        <div class="drawer-context" id="drawer-context"></div>
+      </div>
+      <div class="drawer-actions">
+        <button class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export</button>
+        <button class="drawer-close" id="drawer-close" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="drawer-body">
+      <table class="data-table" id="drawer-table"><!-- injected --></table>
+    </div>
+    <div class="drawer-footer">
+      <div>Sorted by <strong>Latest order edited date</strong> desc · Empty cells render <code>-</code></div>
+      <div>
+        <span class="placeholder-pill">Showing 1 – xx of xx</span>
+        &nbsp;·&nbsp;
+        <span class="placeholder-pill">Export up to xxx rows · split into multiple CSVs if exceeded</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   CONSTANTS & ENUMS  (match PRD §3)
+   ========================================================= */
+
+// All OrderEditType enum values (PRD §3.1) — 10 types
+const ORDER_EDIT_TYPES = [
+  'ShippingAddress.Change',
+  'ProductVariant.Change',
+  'Quantity.Increase',
+  'Quantity.Decrease',
+  'Product.Remove',
+  'Product.Add',
+  'Product.Upsell',
+  'DiscountCode.Add',
+  'Order.Cancel',
+  'Contact.Change',
+];
+
+// §13 stacked column uses 9 types (PRD explicitly lists 9, excludes Contact.Change)
+const STACKED_TYPES = [
+  'ShippingAddress.Change',
+  'ProductVariant.Change',
+  'Quantity.Increase',
+  'Quantity.Decrease',
+  'Product.Remove',
+  'Product.Add',
+  'Product.Upsell',
+  'DiscountCode.Add',
+  'Order.Cancel',
+];
+
+// 9-type palette — restrained blue-family + orange-family + gray
+// (matches AfterShip Tracking / Returns dashboard aesthetic)
+const TYPE_COLORS = {
+  'ShippingAddress.Change': '#2E5BFF',  // primary blue
+  'ProductVariant.Change':  '#1849C6',  // deep blue
+  'Quantity.Increase':      '#5B7BFF',  // medium blue
+  'Quantity.Decrease':      '#84A9FF',  // light blue
+  'Product.Remove':         '#B54708',  // deep orange
+  'Product.Add':            '#F79009',  // accent orange
+  'Product.Upsell':         '#FDB022',  // light orange
+  'DiscountCode.Add':       '#A8BFFF',  // pale blue
+  'Order.Cancel':           '#98A2B3',  // neutral gray
+  'Contact.Change':         '#D0D5DD',  // light gray
+};
+
+/* =========================================================
+   DETERMINISTIC MOCK DATA
+   ========================================================= */
+function seedRand(seed) {
+  let s = seed;
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+}
+const rand = seedRand(42);
+
+function daysAgo(n) {
+  const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - n); return d;
+}
+
+const DAYS = 30;
+const TYPE_WEIGHTS = {
+  'ShippingAddress.Change': 0.22,
+  'ProductVariant.Change':  0.10,
+  'Quantity.Increase':      0.09,
+  'Quantity.Decrease':      0.06,
+  'Product.Remove':         0.05,
+  'Product.Add':            0.10,
+  'Product.Upsell':         0.08,
+  'DiscountCode.Add':       0.08,
+  'Order.Cancel':           0.07,
+  'Contact.Change':         0.04,
+};
+
+const daily = [];
+for (let i = DAYS - 1; i >= 0; i--) {
+  const date = daysAgo(i);
+  const base = 55 + Math.floor(rand() * 35);              // unique edited orders
+  const typeCounts = {};
+  for (const t of ORDER_EDIT_TYPES) {
+    typeCounts[t] = Math.max(0, Math.round(base * TYPE_WEIGHTS[t] * (0.70 + rand() * 0.65)));
+  }
+  const totalEdited   = base;
+  const cancelled     = typeCounts['Order.Cancel'];
+  const rescueOrders  = Math.max(0, totalEdited - cancelled + Math.round(rand() * 4));
+  const rescueRevenue = rescueOrders * (95 + Math.round(rand() * 60));
+  const upsellOrders  = typeCounts['Product.Add'] + typeCounts['Product.Upsell'];
+  const upsellRevenue = upsellOrders * (35 + Math.round(rand() * 50));
+  const cancelValue   = cancelled * (65 + Math.round(rand() * 80));
+  const pageViews     = Math.round(totalEdited / (0.12 + rand() * 0.04));
+  daily.push({ date, typeCounts, totalEdited, cancelled, rescueOrders, rescueRevenue, upsellOrders, upsellRevenue, cancelValue, pageViews });
+}
+
+// Aggregators
+const sumField      = (arr, f) => arr.reduce((a, r) => a + r[f], 0);
+const sumTypeCount  = (arr, t) => arr.reduce((a, r) => a + (r.typeCounts[t] || 0), 0);
+
+// KPI totals
+function periodTotals(rows) {
+  const totalEdited    = sumField(rows, 'totalEdited');
+  const rescueRevenue  = sumField(rows, 'rescueRevenue');
+  const upsellRevenue  = sumField(rows, 'upsellRevenue');
+  const upsellOrders   = sumField(rows, 'upsellOrders');
+  const pageViews      = sumField(rows, 'pageViews');
+  const upsellConv     = pageViews ? (upsellOrders / pageViews) : 0;
+  const rescuePerOrder = totalEdited ? rescueRevenue / totalEdited : 0;
+  const upsellPerOrder = totalEdited ? upsellRevenue / totalEdited : 0;
+  return { totalEdited, rescueRevenue, rescuePerOrder, upsellRevenue, upsellConv, upsellPerOrder };
+}
+const current = periodTotals(daily);
+const previous = {
+  totalEdited:    Math.round(current.totalEdited   / 1.124),
+  rescueRevenue:  Math.round(current.rescueRevenue / 1.088),
+  rescuePerOrder: current.rescuePerOrder / 0.967,  // current slightly lower than prev
+  upsellRevenue:  Math.round(current.upsellRevenue / 1.217),
+  upsellConv:     current.upsellConv / 1.063,
+  upsellPerOrder: current.upsellPerOrder / 1.084,
+};
+
+/* =========================================================
+   FORMATTERS
+   ========================================================= */
+const fmtInt   = n => n.toLocaleString('en-US');
+const fmtMoney = n => '$' + Math.round(n).toLocaleString('en-US');
+const fmtPct   = n => (n * 100).toFixed(1) + '%';
+const fmtDate  = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+const fmtDateFull = d => d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+const fmtDateTime = d => d.toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtOrEmpty = (v, formatter) => (v === 0 || v == null || v === '') ? '-' : formatter(v);
+const trendDelta = (cur, prev) => prev === 0 ? 0 : (cur - prev) / prev;
+const trendHtml  = (delta) => {
+  const cls = delta >= 0 ? 'up' : 'down';
+  const arrow = delta >= 0 ? '▲' : '▼';
+  return `<span class="kpi-trend ${cls}">${arrow} ${Math.abs(delta * 100).toFixed(1)}%</span>`;
+};
+
+/* =========================================================
+   FILTER BAR (rendered twice — dashboard + report view)
+   ========================================================= */
+const FILTER_CONFIG = [
+  { id: 'date-type', label: 'Date type', type: 'select', options: [
+    { v: 'edited',  t: 'Latest order edited date' },
+    { v: 'order',   t: 'Order date' },
+    { v: 'import',  t: 'Order import date' },
+  ] },
+  { id: 'date-range', label: 'Date range', type: 'select', options: ['Today','Yesterday','Last 7 days','Last 30 days','Last 60 days','Last 90 days','Last 120 days','Last 180 days','Last month','Last quarter','Last year'], default: 'Last 30 days' },
+  { id: 'compare', label: 'Compare period', type: 'select', options: ['Previous period','Previous year','No comparison'] },
+  { id: 'payment', label: 'Payment status', type: 'select', options: ['All','Paid','Partially paid','Refund','Partially refund'] },
+  { id: 'fulfillment', label: 'Fulfillment status', type: 'select', options: ['All','Unfulfilled','Fulfilled','Partially fulfilled'] },
+  { id: 'order-status', label: 'Order status', type: 'select', options: ['All','Canceled','Archived'] },
+  { id: 'edit-type', label: 'Order edit type', type: 'select', options: ['All', ...ORDER_EDIT_TYPES] },
+  { id: 'store', label: 'Store', type: 'select', options: ['All stores','Acme Apparel','Acme Home','Acme Outdoor'] },
+  { id: 'tag', label: 'Order tag', type: 'input', grow: true, placeholder: 'Search tags, e.g. VIP, Subscription…' },
+];
+
+function renderFilters(containerId, prefix) {
+  const container = document.getElementById(containerId);
+  const html = FILTER_CONFIG.map(f => {
+    if (f.type === 'select') {
+      const opts = f.options.map(o => {
+        const v = typeof o === 'object' ? o.v : o;
+        const t = typeof o === 'object' ? o.t : o;
+        const sel = f.default && f.default === t ? ' selected' : '';
+        return `<option value="${v}"${sel}>${t}</option>`;
+      }).join('');
+      return `<div class="filter-group${f.grow ? ' grow' : ''}">
+        <label class="filter-label">${f.label}</label>
+        <div class="filter-control"><select id="${prefix}-f-${f.id}">${opts}</select></div>
+      </div>`;
+    } else {
+      return `<div class="filter-group${f.grow ? ' grow' : ''}">
+        <label class="filter-label">${f.label}</label>
+        <div class="filter-control"><input type="text" id="${prefix}-f-${f.id}" placeholder="${f.placeholder || ''}" /></div>
+      </div>`;
+    }
+  }).join('') + `
+    <div class="filter-actions">
+      <button class="btn" data-role="reset">Reset</button>
+      <button class="btn btn-primary" data-role="apply">Apply</button>
+    </div>`;
+  container.innerHTML = html;
+
+  container.querySelector('[data-role="apply"]').addEventListener('click', applyFilters);
+  container.querySelector('[data-role="reset"]').addEventListener('click', resetFilters);
+}
+
+/* =========================================================
+   KPI CARDS  (PRD §7)
+   ========================================================= */
+function renderKpis() {
+  const cards = [
+    { key:'totalEdited',   label: 'Total edited order',
+      value: fmtInt(current.totalEdited),
+      delta: trendDelta(current.totalEdited, previous.totalEdited),
+      prev: fmtInt(previous.totalEdited),
+      tip: 'Unique orders with any successful edit (PRD §7.2).' },
+    { key:'rescueRevenue', label: 'Rescue revenue',
+      value: fmtMoney(current.rescueRevenue),
+      delta: trendDelta(current.rescueRevenue, previous.rescueRevenue),
+      prev: fmtMoney(previous.rescueRevenue),
+      tip: 'Updated total of orders edited successfully (excl. Cancel & Upsell) and not cancelled afterwards.' },
+    { key:'rescuePerOrder', label: 'Rescue revenue per edited order',
+      value: fmtMoney(current.rescuePerOrder),
+      delta: trendDelta(current.rescuePerOrder, previous.rescuePerOrder),
+      prev: fmtMoney(previous.rescuePerOrder),
+      tip: 'Rescue revenue ÷ Total edited order. Average rescued value carried by each edited order.' },
+    { key:'upsellRevenue', label: 'Upsell revenue',
+      value: fmtMoney(current.upsellRevenue),
+      delta: trendDelta(current.upsellRevenue, previous.upsellRevenue),
+      prev: fmtMoney(previous.upsellRevenue),
+      tip: 'Incremental revenue from Product.Add and Product.Upsell (discounted unit price × qty).' },
+    { key:'upsellConv',    label: 'Upsell conversion rate',
+      value: fmtPct(current.upsellConv),
+      delta: trendDelta(current.upsellConv, previous.upsellConv),
+      prev: fmtPct(previous.upsellConv),
+      tip: 'Orders with Product.Add / Product.Upsell ÷ orders that viewed order status / thank-you page.' },
+    { key:'upsellPerOrder', label: 'Upsell per edited order',
+      value: fmtMoney(current.upsellPerOrder),
+      delta: trendDelta(current.upsellPerOrder, previous.upsellPerOrder),
+      prev: fmtMoney(previous.upsellPerOrder),
+      tip: 'Upsell revenue ÷ Total edited order. Average upsell carried by each edited order.' },
+  ];
+  document.getElementById('kpi-row').innerHTML = cards.map(c => `
+    <div class="kpi-card" data-kpi="${c.key}" title="Click to drill into orders · ${c.tip}">
+      <div class="kpi-label">${c.label}
+        <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </div>
+      <div class="kpi-value">${c.value}</div>
+      <div class="kpi-compare">${trendHtml(c.delta)} vs previous period · ${c.prev}</div>
+    </div>
+  `).join('');
+  // Click KPI card → drill drawer scoped to that KPI
+  document.querySelectorAll('.kpi-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const k = el.dataset.kpi;
+      const labels = {
+        totalEdited: 'Total edited order',
+        rescueRevenue: 'Rescue revenue',
+        rescuePerOrder: 'Rescue revenue per edited order',
+        upsellRevenue: 'Upsell revenue',
+        upsellConv: 'Upsell conversion rate',
+        upsellPerOrder: 'Upsell per edited order',
+      };
+      openDrawer({ scope: `KPI · ${labels[k]}`, contextText: 'Scoped by dashboard filters' });
+    });
+  });
+}
+
+/* =========================================================
+   TIME-BUCKET HELPERS
+   ========================================================= */
+function bucketKey(date, granularity) {
+  if (granularity === 'day')  return fmtDate(date);
+  if (granularity === 'week') { const d = new Date(date); d.setDate(d.getDate() - d.getDay()); return 'W ' + fmtDate(d); }
+  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function aggregate(rows, granularity, valueFn) {
+  const buckets = new Map();
+  rows.forEach(r => {
+    const k = bucketKey(r.date, granularity);
+    buckets.set(k, (buckets.get(k) || 0) + valueFn(r));
+  });
+  return { labels: [...buckets.keys()], values: [...buckets.values()] };
+}
+
+function bucketSnapshot(rows, granularity) {
+  const buckets = new Map();
+  rows.forEach(r => {
+    const k = bucketKey(r.date, granularity);
+    const b = buckets.get(k) || {
+      totalEdited: 0, rescueRevenue: 0, upsellRevenue: 0, upsellOrders: 0,
+      pageViews: 0, cancelled: 0, rescueOrders: 0, cancelValue: 0,
+      typeCounts: Object.fromEntries(ORDER_EDIT_TYPES.map(t => [t, 0])),
+    };
+    b.totalEdited    += r.totalEdited;
+    b.rescueRevenue  += r.rescueRevenue;
+    b.upsellRevenue  += r.upsellRevenue;
+    b.upsellOrders   += r.upsellOrders;
+    b.pageViews      += r.pageViews;
+    b.cancelled      += r.cancelled;
+    b.rescueOrders   += r.rescueOrders;
+    b.cancelValue    += r.cancelValue;
+    for (const t of ORDER_EDIT_TYPES) b.typeCounts[t] += (r.typeCounts[t] || 0);
+    buckets.set(k, b);
+  });
+  return buckets;
+}
+
+/* =========================================================
+   CHART DEFAULTS
+   ========================================================= */
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#475467';
+Chart.defaults.plugins.legend.display = false;
+Chart.defaults.plugins.tooltip.backgroundColor = '#0F172A';
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 6;
+Chart.defaults.plugins.tooltip.boxPadding = 4;
+Chart.defaults.plugins.tooltip.displayColors = true;
+Chart.defaults.plugins.tooltip.titleFont = { weight: 600, size: 12 };
+Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+
+const gridCfg = { color: '#F2F4F7', drawBorder: false };
+const tickCfg = { color: '#98A2B3' };
+
+/* =========================================================
+   REPORT CONFIGS  (PRD §§8–13)
+   Each report declares:
+   - title / subtitle / hasGranularity
+   - chartFn(canvasId, granularity)   — draws into a given canvas
+   - tableColumns                     — { id, label, format, dimension?, drill? }
+   - tableRows(granularity)           — returns array of row objects (first label is the dimension bucket)
+   ========================================================= */
+
+/* ---- Cancellation reason data (shared between §10 chart + table) ---- */
+const CANCEL_REASONS = [
+  { reason: 'Ordered by mistake',              count: 42 },
+  { reason: 'Found a better price elsewhere',  count: 31 },
+  { reason: 'Shipping takes too long',         count: 24 },
+  { reason: 'Changed my mind',                 count: 19 },
+  { reason: 'Item no longer needed',           count: 14 },
+  { reason: 'Other',                           count: 9  },
+];
+
+/* ---- Top 5 upsell products data (shared between §12 chart + table) ---- */
+const UPSELL_PRODUCTS = [
+  { name: 'Premium Leather Wallet', type: 'Accessories', variant: 'Brown / Leather', sku: 'SKU-LW-001', collection: 'Accessories & Gifts', revenue: 4820, orders: 92,  sold: 132 },
+  { name: 'Cashmere Scarf - Black', type: 'Apparel',     variant: 'Black / One size', sku: 'SKU-CS-012', collection: 'Winter Collection',     revenue: 3760, orders: 58,  sold: 78  },
+  { name: 'Silk Pillowcase Set',    type: 'Home',        variant: 'Standard / Ivory', sku: 'SKU-SP-045', collection: 'Home & Living',        revenue: 3210, orders: 74,  sold: 95  },
+  { name: 'Organic Cotton Tote',    type: 'Accessories', variant: 'Large / Natural',  sku: 'SKU-CT-023', collection: 'Eco-Friendly',         revenue: 2480, orders: 103, sold: 144 },
+  { name: 'Ceramic Coffee Mug',     type: 'Home',        variant: '350ml / White',    sku: 'SKU-CM-067', collection: 'Home & Living',        revenue: 1920, orders: 64,  sold: 128 },
+  { name: 'Wool Blend Beanie',      type: 'Apparel',     variant: 'One size / Grey',  sku: 'SKU-WB-089', collection: 'Winter Collection',    revenue: 1580, orders: 47,  sold: 62  },
+];
+
+// Chart instance registry — so we can destroy + rebuild on toggles/rerender
+const charts = {};
+
+/* ------- Report: §8 Order edits over time (line) ------- */
+function drawEditsOverTime(canvasId, granularity) {
+  const { labels, values } = aggregate(daily, granularity, r => r.totalEdited);
+  const snap = bucketSnapshot(daily, granularity);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Total edited order',
+        data: values,
+        borderColor: '#2E5BFF',
+        backgroundColor: 'rgba(46,91,255,0.10)',
+        fill: true, tension: 0.35,
+        pointRadius: 3, pointHoverRadius: 6,
+        pointBackgroundColor: '#2E5BFF', borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { grid: { display: false }, ticks: tickCfg }, y: { beginAtZero: true, grid: gridCfg, ticks: tickCfg } },
+      plugins: {
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => {
+              const b = snap.get(ctx.label) || { totalEdited:0,rescueRevenue:0,upsellRevenue:0,upsellOrders:0,pageViews:0 };
+              const conv = b.pageViews ? (b.upsellOrders / b.pageViews) : 0;
+              return [
+                `Total edited order: ${fmtInt(b.totalEdited)}`,
+                `Rescue revenue: ${fmtMoney(b.rescueRevenue)}`,
+                `Upsell revenue: ${fmtMoney(b.upsellRevenue)}`,
+                `Upsell conversion rate: ${fmtPct(conv)}`,
+              ];
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ------- Report: §9 Cancellation order over time (area) ------- */
+function drawCancelOverTime(canvasId, granularity) {
+  const { labels, values } = aggregate(daily, granularity, r => r.cancelled);
+  const snap = bucketSnapshot(daily, granularity);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cancellation order count',
+        data: values,
+        borderColor: '#F79009',
+        backgroundColor: 'rgba(247,144,9,0.12)',
+        fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 6, borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { grid: { display: false }, ticks: tickCfg }, y: { beginAtZero: true, grid: gridCfg, ticks: tickCfg } },
+      plugins: {
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => {
+              const b = snap.get(ctx.label) || { cancelled: 0, totalEdited: 0 };
+              const rate = b.totalEdited ? b.cancelled / b.totalEdited : 0;
+              return [
+                `Cancellation order count: ${fmtInt(b.cancelled)}`,
+                `Cancellation order rate: ${fmtPct(rate)}`,
+              ];
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ------- Report: §10 Top 5 order cancellation reason (horizontal bar) ------- */
+function drawCancelReason(canvasId) {
+  const sorted = [...CANCEL_REASONS].sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)).slice(0, 5);
+  const total  = CANCEL_REASONS.reduce((s, r) => s + r.count, 0);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(r => r.reason),
+      datasets: [{
+        data: sorted.map(r => r.count),
+        backgroundColor: '#F79009',
+        borderRadius: 4, barThickness: 18,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      scales: { x: { beginAtZero: true, grid: gridCfg, ticks: tickCfg }, y: { grid: { display: false }, ticks: tickCfg } },
+      plugins: {
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => {
+              const c = ctx.parsed.x;
+              const pct = total ? c / total : 0;
+              // Mock cancel value for this reason: proportional
+              const value = Math.round(c * 95);
+              return [
+                `Total canceled orders: ${fmtInt(c)}`,
+                `Share: ${fmtPct(pct)}`,
+                `Canceled order value: ${fmtMoney(value)}`,
+              ];
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ------- Report: §11 Upsell revenue over time (line) ------- */
+function drawUpsellOverTime(canvasId, granularity) {
+  const { labels, values } = aggregate(daily, granularity, r => r.upsellRevenue);
+  const snap = bucketSnapshot(daily, granularity);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Upsell revenue',
+        data: values,
+        borderColor: '#2E5BFF',
+        backgroundColor: 'rgba(46,91,255,0.10)',
+        fill: true, tension: 0.35, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2, pointBackgroundColor: '#2E5BFF',
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { grid: { display: false }, ticks: tickCfg }, y: { beginAtZero: true, grid: gridCfg, ticks: { ...tickCfg, callback: v => '$' + v } } },
+      plugins: {
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => {
+              const b = snap.get(ctx.label) || { upsellRevenue: 0, upsellOrders: 0 };
+              return [
+                `Upsell revenue: ${fmtMoney(b.upsellRevenue)}`,
+                `Upsell order count: ${fmtInt(b.upsellOrders)}`,
+              ];
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ------- Report: §12 Top 5 upsell product revenue (horizontal bar) ------- */
+function drawUpsellProduct(canvasId) {
+  const sorted = [...UPSELL_PRODUCTS].sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name)).slice(0, 5);
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(p => p.name),
+      datasets: [{
+        data: sorted.map(p => p.revenue),
+        backgroundColor: '#2E5BFF',
+        borderRadius: 4, barThickness: 18,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      scales: { x: { beginAtZero: true, grid: gridCfg, ticks: { ...tickCfg, callback: v => '$' + v } }, y: { grid: { display: false }, ticks: tickCfg } },
+      plugins: {
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (ctx) => {
+              const p = sorted[ctx.dataIndex];
+              return [
+                `Product upsell revenue: ${fmtMoney(p.revenue)}`,
+                `Product upsell order count: ${fmtInt(p.orders)}`,
+              ];
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ------- Report: §13 Edited order by type over time (stacked column) -------
+   9 types per PRD §13. Tooltip shows each type's count for that bucket,
+   sorted descending, with `-` for zero. Legend shows all 9 types. */
+function drawEditedByType(canvasId, granularity) {
+  const snap = bucketSnapshot(daily, granularity);
+  const labels = [...snap.keys()];
+  const datasets = STACKED_TYPES.map(t => ({
+    label: t,
+    data: labels.map(k => snap.get(k).typeCounts[t] || 0),
+    backgroundColor: TYPE_COLORS[t],
+    borderColor: TYPE_COLORS[t],
+    stack: 'edits',
+    borderRadius: 2,
+    barThickness: 'flex',
+    maxBarThickness: 36,
+  }));
+
+  if (charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: 'bottom',
+          labels: { boxWidth: 10, boxHeight: 10, padding: 10, font: { size: 11 } },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0].label,
+            label: () => '',             // suppress default per-dataset rows
+            afterBody: (items) => {
+              const bucket = items[0].label;
+              const b = snap.get(bucket);
+              if (!b) return [];
+              const entries = STACKED_TYPES
+                .map(t => ({ t, c: b.typeCounts[t] || 0 }))
+                .sort((a, c) => c.c - a.c || a.t.localeCompare(c.t));
+              return entries.map(e => `${e.t}: ${e.c === 0 ? '-' : fmtInt(e.c)}`);
+            },
+          },
+        },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: tickCfg },
+        y: { stacked: true, beginAtZero: true, grid: gridCfg, ticks: tickCfg },
+      },
+    },
+  });
+}
+
+/* =========================================================
+   REPORT CONFIG  (order must match the chart-grid layout)
+   ========================================================= */
+const REPORTS = {
+  'edits-over-time': {
+    title: 'Order edits over time',
+    subtitle: 'Total edited orders by period',
+    hasGranularity: true,
+    chartFn: drawEditsOverTime,
+    tableColumns: [
+      { id: 'bucket',        label: 'Date',                 format: 'text',  dimension: true },
+      { id: 'totalEdited',   label: 'Total edited orders',  format: 'int',   drill: true },
+      { id: 'rescueRevenue', label: 'Rescue revenue',       format: 'money' },
+      { id: 'upsellRevenue', label: 'Upsell revenue',       format: 'money' },
+    ],
+    tableRows: (granularity) => {
+      const snap = bucketSnapshot(daily, granularity);
+      const rows = [...snap.entries()].map(([bucket, b]) => ({
+        bucket, totalEdited: b.totalEdited, rescueRevenue: b.rescueRevenue, upsellRevenue: b.upsellRevenue,
+      }));
+      const summary = {
+        bucket: 'Summary',
+        totalEdited:   rows.reduce((s, r) => s + r.totalEdited, 0),
+        rescueRevenue: rows.reduce((s, r) => s + r.rescueRevenue, 0),
+        upsellRevenue: rows.reduce((s, r) => s + r.upsellRevenue, 0),
+      };
+      return [summary, ...rows];
+    },
+  },
+
+  'cancel-over-time': {
+    title: 'Cancellation order over time',
+    subtitle: 'Order.Cancel successful orders by period',
+    hasGranularity: true,
+    chartFn: drawCancelOverTime,
+    tableColumns: [
+      { id: 'bucket',       label: 'Date',                        format: 'text',  dimension: true },
+      { id: 'cancelled',    label: 'Total canceled orders',       format: 'int',   drill: true },
+      { id: 'cancelValue',  label: 'Total canceled order value',  format: 'money' },
+      { id: 'cancelRate',   label: 'Canceled rate',               format: 'pct' },
+    ],
+    tableRows: (granularity) => {
+      const snap = bucketSnapshot(daily, granularity);
+      const rows = [...snap.entries()].map(([bucket, b]) => ({
+        bucket,
+        cancelled: b.cancelled,
+        cancelValue: b.cancelValue,
+        cancelRate: b.totalEdited ? b.cancelled / b.totalEdited : 0,
+      }));
+      const totalCancelled  = rows.reduce((s, r) => s + r.cancelled, 0);
+      const totalValue      = rows.reduce((s, r) => s + r.cancelValue, 0);
+      const totalEdited     = sumField(daily, 'totalEdited');
+      const summary = {
+        bucket: 'Summary',
+        cancelled: totalCancelled,
+        cancelValue: totalValue,
+        cancelRate: totalEdited ? totalCancelled / totalEdited : 0,
+      };
+      return [summary, ...rows];
+    },
+  },
+
+  'cancel-reason': {
+    title: 'Top 5 order cancellation reason',
+    subtitle: 'Based on buyer-selected reason at cancellation',
+    hasGranularity: false,
+    chartFn: drawCancelReason,
+    tableColumns: [
+      { id: 'reason',   label: 'Cancellation reason', format: 'text', dimension: true },
+      { id: 'count',    label: 'Total canceled orders by reason', format: 'int', drill: true },
+      { id: 'share',    label: 'Canceled order percentage', format: 'pct' },
+      { id: 'value',    label: 'Total canceled order value by reason', format: 'money' },
+    ],
+    tableRows: () => {
+      const total = CANCEL_REASONS.reduce((s, r) => s + r.count, 0);
+      const rows  = [...CANCEL_REASONS]
+        .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
+        .map(r => ({ reason: r.reason, count: r.count, share: total ? r.count / total : 0, value: r.count * 95 }));
+      const summary = { reason: 'Summary', count: total, share: 1, value: rows.reduce((s, r) => s + r.value, 0) };
+      return [summary, ...rows];
+    },
+  },
+
+  'upsell-over-time': {
+    title: 'Upsell revenue over time',
+    subtitle: 'Incremental revenue from Product.Add & Product.Upsell',
+    hasGranularity: true,
+    chartFn: drawUpsellOverTime,
+    tableColumns: [
+      { id: 'bucket',        label: 'Date',                         format: 'text',  dimension: true },
+      { id: 'upsellOrders',  label: 'Upsell order count',            format: 'int',  drill: true },
+      { id: 'upsellRevenue', label: 'Upsell revenue',                format: 'money' },
+      { id: 'upsellConv',    label: 'Upsell order conversion rate',  format: 'pct' },
+      { id: 'fromEditConv',  label: 'From edit to upsell rate',      format: 'pct' },
+    ],
+    tableRows: (granularity) => {
+      const snap = bucketSnapshot(daily, granularity);
+      const rows = [...snap.entries()].map(([bucket, b]) => ({
+        bucket,
+        upsellOrders:  b.upsellOrders,
+        upsellRevenue: b.upsellRevenue,
+        upsellConv:    b.pageViews ? b.upsellOrders / b.pageViews : 0,
+        fromEditConv:  b.totalEdited ? b.upsellOrders / b.totalEdited : 0,
+      }));
+      const totalOrders  = rows.reduce((s, r) => s + r.upsellOrders, 0);
+      const totalRevenue = rows.reduce((s, r) => s + r.upsellRevenue, 0);
+      const totalEdited  = sumField(daily, 'totalEdited');
+      const totalViews   = sumField(daily, 'pageViews');
+      const summary = {
+        bucket: 'Summary',
+        upsellOrders: totalOrders,
+        upsellRevenue: totalRevenue,
+        upsellConv:   totalViews  ? totalOrders / totalViews  : 0,
+        fromEditConv: totalEdited ? totalOrders / totalEdited : 0,
+      };
+      return [summary, ...rows];
+    },
+  },
+
+  'upsell-product': {
+    title: 'Top 5 upsell product revenue',
+    subtitle: 'Incremental revenue by product (discounted unit price × qty)',
+    hasGranularity: false,
+    chartFn: drawUpsellProduct,
+    // PRD §12.3: dimensions are product attributes (all 5 shown in parallel);
+    // measures are order count / revenue (drill Yes) / total item sold.
+    tableColumns: [
+      { id: 'name',       label: 'Product title',               format: 'text', dimension: true },
+      { id: 'type',       label: 'Product type',                format: 'text', dimension: true },
+      { id: 'variant',    label: 'Product variant',             format: 'text', dimension: true },
+      { id: 'sku',        label: 'Product SKU',                 format: 'text', dimension: true },
+      { id: 'collection', label: 'Product collection',          format: 'text', dimension: true },
+      { id: 'orders',     label: 'Product upsell order count',  format: 'int' },
+      { id: 'revenue',    label: 'Product upsell revenue',      format: 'money', drill: true },
+      { id: 'sold',       label: 'Product total item sold',     format: 'int' },
+    ],
+    tableRows: () => {
+      const rows = [...UPSELL_PRODUCTS]
+        .sort((a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name))
+        .map(p => ({ name: p.name, type: p.type, variant: p.variant, sku: p.sku, collection: p.collection, orders: p.orders, revenue: p.revenue, sold: p.sold }));
+      const summary = {
+        name: 'Summary', type: '', variant: '', sku: '', collection: '',
+        orders:  rows.reduce((s, r) => s + r.orders, 0),
+        revenue: rows.reduce((s, r) => s + r.revenue, 0),
+        sold:    rows.reduce((s, r) => s + r.sold, 0),
+      };
+      return [summary, ...rows];
+    },
+  },
+
+  'edited-by-type': {
+    title: 'Edited order by type over time',
+    subtitle: 'Stacked by 9 OrderEditType (PRD §13)',
+    hasGranularity: true,
+    chartFn: drawEditedByType,
+    // PRD §13.3: dimensions = Latest order edited date (follows chart granularity) + Order edit type;
+    // measure = Total edited order of each type (drill = Yes).
+    // Pattern mirrors AfterShip Shipment events detail table: first column reuses the dashboard's
+    // date filter field; its bucketing follows the Day/Week/Month toggle on the chart.
+    tableColumns: [
+      { id: 'bucket', label: 'Latest order edited date',          format: 'text', dimension: true },
+      { id: 'type',   label: 'Order edit type',                   format: 'text', dimension: true },
+      { id: 'total',  label: 'Total edited order of each type',   format: 'int',  drill: true },
+    ],
+    tableRows: (granularity) => {
+      const snap = bucketSnapshot(daily, granularity);
+      // Newest bucket first; within a bucket, type rows sorted by count desc (matches chart tooltip).
+      const bucketsDesc = [...snap.entries()].reverse();
+      const rows = [];
+      for (const [bucket, b] of bucketsDesc) {
+        const perType = STACKED_TYPES
+          .map(t => ({ bucket, type: t, total: b.typeCounts[t] || 0 }))
+          .filter(r => r.total > 0)
+          .sort((a, z) => z.total - a.total || a.type.localeCompare(z.type));
+        rows.push(...perType);
+      }
+      const summary = {
+        bucket: 'Summary',
+        type: '-',
+        total: rows.reduce((s, r) => s + r.total, 0),
+      };
+      return [summary, ...rows];
+    },
+  },
+};
+
+// Keep a stable order for chart grid rendering.
+// Paired layout (2 cols): over-time chart on the left, its breakdown on the right.
+//   Row 1: Order edits  +  Edited order by type
+//   Row 2: Upsell revenue  +  Top 5 upsell product
+//   Row 3: Cancellation    +  Top 5 cancellation reason
+const REPORT_ORDER = [
+  'edits-over-time',
+  'edited-by-type',
+  'upsell-over-time',
+  'upsell-product',
+  'cancel-over-time',
+  'cancel-reason',
+];
+
+/* =========================================================
+   DASHBOARD: build 6 chart cards
+   ========================================================= */
+function renderChartGrid() {
+  const grid = document.getElementById('chart-grid');
+  grid.innerHTML = REPORT_ORDER.map(id => {
+    const r = REPORTS[id];
+    const gran = r.hasGranularity ? `
+      <div class="granularity-toggle" data-chart="${id}">
+        <button class="active" data-g="day">Day</button>
+        <button data-g="week">Week</button>
+        <button data-g="month">Month</button>
+      </div>` : '';
+    return `
+      <div class="chart-card" data-report="${id}">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">${r.title}</div>
+            <div class="chart-subtitle">${r.subtitle}</div>
+          </div>
+          <div class="chart-tools">
+            ${gran}
+            <button class="expand-btn" data-expand="${id}" title="Open detail report">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="chart-body"><canvas id="c-dash-${id}"></canvas></div>
+      </div>`;
+  }).join('');
+
+  // Wire granularity toggles
+  grid.querySelectorAll('.granularity-toggle').forEach(group => {
+    group.addEventListener('click', e => {
+      const btn = e.target.closest('button'); if (!btn) return;
+      group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const reportId = group.dataset.chart;
+      REPORTS[reportId].chartFn(`c-dash-${reportId}`, btn.dataset.g);
+    });
+  });
+
+  // Wire expand buttons
+  grid.querySelectorAll('.expand-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      enterReport(btn.dataset.expand);
+    });
+  });
+}
+
+function renderDashboardCharts() {
+  REPORT_ORDER.forEach(id => {
+    const r = REPORTS[id];
+    r.chartFn(`c-dash-${id}`, r.hasGranularity ? 'day' : undefined);
+  });
+}
+
+/* =========================================================
+   REPORT VIEW (level 2)
+   ========================================================= */
+let currentReportId = null;
+let currentReportGranularity = 'day';
+
+function formatCell(val, fmt) {
+  if (val === null || val === undefined) return '-';
+  switch (fmt) {
+    case 'int':        return fmtInt(val);
+    case 'intOrDash':  return val === 0 ? '-' : fmtInt(val);
+    case 'money':      return fmtMoney(val);
+    case 'pct':        return fmtPct(val);
+    case 'text':
+    default:           return val === '' ? '-' : String(val);
+  }
+}
+
+function renderDetailTable(reportId, granularity) {
+  const r = REPORTS[reportId];
+  const rows = r.tableRows(granularity);
+  const cols = r.tableColumns;
+
+  const head = `<thead><tr>${cols.map(c => `<th>${c.label}${c.dimension ? `
+    <span class="sort-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 15 12 9 18 15"/></svg></span>` : ''}</th>`).join('')}</tr></thead>`;
+
+  const body = `<tbody>${rows.map((row, rIdx) => {
+    const isSummary = rIdx === 0;
+    // Compose drill scope from every dimension column on the row (skips summary placeholders / blanks).
+    const scope = cols
+      .filter(c => c.dimension)
+      .map(c => row[c.id])
+      .filter(v => v !== undefined && v !== null && v !== '' && v !== '-')
+      .join(' · ');
+    const tds = cols.map((c) => {
+      const v = row[c.id];
+      const isEmpty = (v === null || v === undefined || v === '' || (c.format === 'intOrDash' && v === 0));
+      if (c.drill && !isSummary && !isEmpty) {
+        return `<td><button class="drill-link" data-drill='${JSON.stringify({ report: reportId, bucket: scope, measure: c.label, col: c.id })}'>${formatCell(v, c.format)}</button></td>`;
+      }
+      return `<td class="${isEmpty ? 'cell-muted' : ''}">${formatCell(v, c.format)}</td>`;
+    }).join('');
+    return `<tr class="${isSummary ? 'summary-row' : ''}">${tds}</tr>`;
+  }).join('')}</tbody>`;
+
+  const table = document.getElementById('report-detail-table');
+  table.innerHTML = head + body;
+
+  // Wire drill links
+  table.querySelectorAll('.drill-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ctx = JSON.parse(btn.dataset.drill);
+      openDrawer({
+        scope: `${REPORTS[ctx.report].title} · ${ctx.bucket} · ${ctx.measure}`,
+        contextText: `Inherited dashboard filters + scoped by "${ctx.bucket}" on measure "${ctx.measure}"`,
+      });
+    });
+  });
+}
+
+function enterReport(reportId) {
+  currentReportId = reportId;
+  currentReportGranularity = REPORTS[reportId].hasGranularity ? 'day' : undefined;
+
+  document.getElementById('dashboard-view').classList.add('hidden');
+  document.getElementById('report-view').classList.remove('hidden');
+
+  const r = REPORTS[reportId];
+  document.getElementById('report-title').textContent = r.title;
+  document.getElementById('report-chart-title').textContent = r.title;
+  document.getElementById('report-chart-subtitle').textContent = r.subtitle;
+
+  // Granularity toggle in report view
+  const tools = document.getElementById('report-chart-tools');
+  if (r.hasGranularity) {
+    tools.innerHTML = `
+      <div class="granularity-toggle" data-chart="report">
+        <button class="active" data-g="day">Day</button>
+        <button data-g="week">Week</button>
+        <button data-g="month">Month</button>
+      </div>`;
+    tools.querySelector('.granularity-toggle').addEventListener('click', e => {
+      const btn = e.target.closest('button'); if (!btn) return;
+      tools.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentReportGranularity = btn.dataset.g;
+      r.chartFn('c-report', currentReportGranularity);
+      renderDetailTable(reportId, currentReportGranularity);
+    });
+  } else {
+    tools.innerHTML = '';
+  }
+
+  r.chartFn('c-report', currentReportGranularity);
+  renderDetailTable(reportId, currentReportGranularity);
+
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function exitReport() {
+  currentReportId = null;
+  document.getElementById('report-view').classList.add('hidden');
+  document.getElementById('dashboard-view').classList.remove('hidden');
+  // Chart.js canvases resize when container becomes visible — nothing to redraw
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+document.getElementById('report-back').addEventListener('click', exitReport);
+
+/* =========================================================
+   DRILL-TO-DETAILS DRAWER
+   12 columns per PRD drill-to-details spec
+   ========================================================= */
+const DRAWER_COLUMNS = [
+  { id: 'orderNumber',   label: 'Order number' },
+  { id: 'orderId',       label: 'Order id' },
+  { id: 'orderDate',     label: 'Order date' },
+  { id: 'latestEdited',  label: 'Latest order edited date' },
+  { id: 'orderEditType', label: 'Order edit type' },
+  { id: 'origTotal',     label: 'Original order total' },
+  { id: 'updatedTotal',  label: 'Updated order total' },
+  { id: 'payment',       label: 'Payment status' },
+  { id: 'fulfillment',   label: 'Fulfillment status' },
+  { id: 'orderStatus',   label: 'Order status' },
+  { id: 'store',         label: 'Store' },
+  { id: 'orderTag',      label: 'Order tag' },
+];
+
+function generateDrawerRows(n = 14) {
+  const stores    = ['Acme Apparel','Acme Home','Acme Outdoor'];
+  const payments  = ['Paid','Partially paid','Refund','Partially refund'];
+  const fulfills  = ['Unfulfilled','Partially fulfilled','Fulfilled'];
+  const statuses  = ['All','Canceled','Archived'];
+  const tagPool   = ['VIP','Subscription','Wholesale','BFCM','']; // empty → '-'
+  const rand2     = seedRand(7);
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const num = 1001 + Math.floor(rand2() * 8999);
+    const editedAt = new Date(Date.now() - Math.floor(rand2() * DAYS) * 86400000 - Math.floor(rand2() * 86400000));
+    const orderedAt = new Date(editedAt.getTime() - Math.floor(rand2() * 5) * 86400000);
+    const origTotal = 50 + Math.round(rand2() * 280);
+    const delta = Math.round((rand2() - 0.4) * 60);
+    const typesSubset = ORDER_EDIT_TYPES
+      .filter(() => rand2() > 0.72)
+      .slice(0, 3);
+    const types = typesSubset.length ? typesSubset.join(', ') : 'ShippingAddress.Change';
+    const tagList = [tagPool[Math.floor(rand2() * tagPool.length)], tagPool[Math.floor(rand2() * tagPool.length)]]
+      .filter(t => t !== '').filter((v, i, a) => a.indexOf(v) === i);
+    rows.push({
+      orderNumber:   `#${num}`,
+      orderId:       `gid://shopify/Order/${4900000000 + num}`,
+      orderDate:     fmtDateFull(orderedAt),
+      latestEdited:  fmtDateTime(editedAt),
+      orderEditType: types,
+      origTotal:     fmtMoney(origTotal),
+      updatedTotal:  fmtMoney(Math.max(0, origTotal + delta)),
+      payment:       payments[Math.floor(rand2() * payments.length)],
+      fulfillment:   fulfills[Math.floor(rand2() * fulfills.length)],
+      orderStatus:   statuses[Math.floor(rand2() * statuses.length)],
+      store:         stores[Math.floor(rand2() * stores.length)],
+      orderTag:      tagList.join(', '),
+      _sortKey:      editedAt.getTime(),
+    });
+  }
+  // Sorted desc by Latest order edited date (PRD default)
+  rows.sort((a, b) => b._sortKey - a._sortKey);
+  return rows;
+}
+
+function renderDrawerTable() {
+  const rows = generateDrawerRows(14);
+  const table = document.getElementById('drawer-table');
+  const head = `<thead><tr>${DRAWER_COLUMNS.map((c, i) => `<th>${c.label}${i === 3 ? `
+    <span class="sort-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>` : ''}</th>`).join('')}</tr></thead>`;
+  const body = `<tbody>${rows.map(r => `<tr>${DRAWER_COLUMNS.map(c => {
+    const v = r[c.id];
+    const empty = v === null || v === undefined || v === '';
+    return `<td class="${empty ? 'cell-muted' : ''}">${empty ? '-' : v}</td>`;
+  }).join('')}</tr>`).join('')}</tbody>`;
+  table.innerHTML = head + body;
+}
+
+function openDrawer({ scope, contextText }) {
+  document.getElementById('drawer-context').textContent = (scope ? `${scope} · ` : '') + (contextText || '');
+  renderDrawerTable();
+  const d = document.getElementById('drill-drawer');
+  const o = document.getElementById('drawer-overlay');
+  d.classList.add('visible');
+  o.classList.add('visible');
+  d.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+function closeDrawer() {
+  const d = document.getElementById('drill-drawer');
+  const o = document.getElementById('drawer-overlay');
+  d.classList.remove('visible');
+  o.classList.remove('visible');
+  d.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+document.getElementById('drawer-overlay').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('drill-drawer').classList.contains('visible')) closeDrawer();
+});
+
+/* =========================================================
+   FILTERS (demo wiring — simulates server-side filtering by
+   scaling a snapshot so the page reacts visibly when filters
+   change; applies to all charts + KPIs + current report view)
+   ========================================================= */
+const DAILY_ORIGINAL = JSON.parse(JSON.stringify(daily.map(r => ({
+  ...r, date: r.date.toISOString(), typeCounts: { ...r.typeCounts },
+}))));
+
+function applyFilters() {
+  const factor = 0.65 + Math.random() * 0.55;
+  daily.forEach((d, i) => {
+    const o = DAILY_ORIGINAL[i];
+    d.totalEdited   = Math.max(1, Math.round(o.totalEdited   * factor));
+    d.rescueRevenue = Math.max(1, Math.round(o.rescueRevenue * factor));
+    d.upsellRevenue = Math.max(1, Math.round(o.upsellRevenue * factor));
+    d.cancelled     = Math.max(0, Math.round(o.cancelled     * factor));
+    d.rescueOrders  = Math.max(0, Math.round(o.rescueOrders  * factor));
+    d.upsellOrders  = Math.max(0, Math.round(o.upsellOrders  * factor));
+    d.cancelValue   = Math.max(0, Math.round(o.cancelValue   * factor));
+    d.pageViews     = Math.max(1, Math.round(o.pageViews     * factor));
+    for (const t of ORDER_EDIT_TYPES) d.typeCounts[t] = Math.max(0, Math.round(o.typeCounts[t] * factor));
+  });
+  Object.assign(current, periodTotals(daily));
+  renderAll();
+}
+
+function resetFilters() {
+  daily.forEach((d, i) => {
+    const o = DAILY_ORIGINAL[i];
+    Object.assign(d, { ...o, date: new Date(o.date), typeCounts: { ...o.typeCounts } });
+  });
+  Object.assign(current, periodTotals(daily));
+  ['dashboard-filters', 'report-filters'].forEach(containerId => {
+    const c = document.getElementById(containerId);
+    c.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+    c.querySelectorAll('input').forEach(i => { i.value = ''; });
+    // Re-apply default for Date range
+    const dr = c.querySelector('[id$="-f-date-range"]');
+    if (dr) [...dr.options].forEach((o, idx) => { if (o.text === 'Last 30 days') dr.selectedIndex = idx; });
+  });
+  renderAll();
+}
+
+/* =========================================================
+   RENDER ALL
+   ========================================================= */
+function renderAll() {
+  renderKpis();
+  renderDashboardCharts();
+  if (currentReportId) {
+    const r = REPORTS[currentReportId];
+    r.chartFn('c-report', currentReportGranularity);
+    renderDetailTable(currentReportId, currentReportGranularity);
+  }
+}
+
+/* =========================================================
+   RELATED PRODUCTS — touchpoint navigation (placeholder)
+   Each tile jumps to the target product's own dashboard home.
+   Current dashboard filters are not carried over because the
+   target products scope their reports differently.
+   ========================================================= */
+document.querySelectorAll('[data-cross-cta]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.crossCta;
+    const label  = target === 'tracking' ? 'Tracking' : 'Returns';
+    // eslint-disable-next-line no-console
+    console.log('[related-products] navigate →', { product: label });
+    alert(`Demo: would navigate to the ${label} dashboard home.`);
+  });
+});
+
+// Initial
+renderFilters('dashboard-filters', 'dash');
+renderFilters('report-filters',    'rep');
+renderChartGrid();
+renderAll();
+</script>
+</body>
+</html>
