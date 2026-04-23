@@ -130,21 +130,7 @@
   .status-banner .dot { width: 8px; height: 8px; background: var(--warning); border-radius: 50%; flex-shrink: 0; }
   .hidden { display: none !important; }
 
-  /* ---------- Related products (cross-sell touchpoints) ---------- */
-  .related-section-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin: 32px 0 12px; }
-  .related-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .related-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); display: flex; align-items: flex-start; gap: 14px; cursor: pointer; transition: all .15s; text-align: left; font: inherit; color: inherit; }
-  .related-tile:hover { border-color: var(--brand); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
-  .related-tile:focus-visible { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(46,91,255,0.15); }
-  .app-icon { flex-shrink: 0; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
-  .app-icon svg { width: 100%; height: 100%; display: block; }
-  .related-tile .tile-body { flex: 1; min-width: 0; }
-  .related-tile .tile-name { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
-  .related-tile .tile-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
-  .related-tile .tile-open { margin-top: 10px; font-size: 13px; font-weight: 500; color: var(--brand); display: inline-flex; align-items: center; gap: 4px; }
-  .related-tile:hover .tile-open { text-decoration: underline; }
-
-  @media (max-width: 1100px) { .chart-grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2, 1fr); } .related-row { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .chart-grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
 <body>
@@ -181,49 +167,6 @@
 
     <!-- ============ CHARTS (7 reports — 3 rows paired + 1 standalone) ============ -->
     <div class="chart-grid" id="chart-grid"><!-- injected --></div>
-
-    <!-- ============ RELATED PRODUCTS (cross-sell touchpoints) ============ -->
-    <div class="related-section-title">Related products</div>
-    <div class="related-row">
-      <button class="related-tile" data-cross-cta="tracking" type="button">
-        <div class="app-icon" aria-hidden="true">
-          <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" fill="none">
-            <path fill="#FC5D24" d="M8 3h24a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H16l-7 7 2-7H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z"/>
-            <g stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 11 27.5 15 27.5 23 20 27 12.5 23 12.5 15z"/>
-              <path d="M20 19v8M20 19l-7.5-4M20 19l7.5-4"/>
-            </g>
-          </svg>
-        </div>
-        <div class="tile-body">
-          <div class="tile-name">AfterShip Tracking</div>
-          <div class="tile-desc">See how order editing helps you reduce the failed delivery attempt rate.</div>
-          <div class="tile-open">
-            Open dashboard
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </div>
-        </div>
-      </button>
-      <button class="related-tile" data-cross-cta="returns" type="button">
-        <div class="app-icon" aria-hidden="true">
-          <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" fill="none">
-            <path fill="#FC5D24" d="M8 3h24a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H16l-7 7 2-7H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z"/>
-            <g stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 11 27.5 15 27.5 23 20 27 12.5 23 12.5 15z"/>
-              <path d="M20 19v8M20 19l-7.5-4M20 19l7.5-4"/>
-            </g>
-          </svg>
-        </div>
-        <div class="tile-body">
-          <div class="tile-name">AfterShip Returns</div>
-          <div class="tile-desc">See how order editing helps you reduce the return rate.</div>
-          <div class="tile-open">
-            Open dashboard
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </div>
-        </div>
-      </button>
-    </div>
   </div>
 
   <!-- =================================================
@@ -514,26 +457,11 @@ function renderKpis() {
       delta: trendDelta(current.rescueRevenue, previous.rescueRevenue),
       prev: fmtMoney(previous.rescueRevenue),
       tip: 'Updated total of orders edited successfully (excl. Cancel & Upsell) and not cancelled afterwards.' },
-    { key:'rescuePerOrder', label: 'Rescue revenue per edited order',
-      value: fmtMoney(current.rescuePerOrder),
-      delta: trendDelta(current.rescuePerOrder, previous.rescuePerOrder),
-      prev: fmtMoney(previous.rescuePerOrder),
-      tip: 'Rescue revenue ÷ Total edited order. Average rescued value carried by each edited order.' },
     { key:'upsellRevenue', label: 'Upsell revenue',
       value: fmtMoney(current.upsellRevenue),
       delta: trendDelta(current.upsellRevenue, previous.upsellRevenue),
       prev: fmtMoney(previous.upsellRevenue),
       tip: 'Incremental revenue from Product.Add and Product.Upsell (discounted unit price × qty).' },
-    { key:'upsellConv',    label: 'Upsell conversion rate',
-      value: fmtPct(current.upsellConv),
-      delta: trendDelta(current.upsellConv, previous.upsellConv),
-      prev: fmtPct(previous.upsellConv),
-      tip: 'Orders with Product.Add / Product.Upsell ÷ orders that viewed order status / thank-you page.' },
-    { key:'upsellPerOrder', label: 'Upsell per edited order',
-      value: fmtMoney(current.upsellPerOrder),
-      delta: trendDelta(current.upsellPerOrder, previous.upsellPerOrder),
-      prev: fmtMoney(previous.upsellPerOrder),
-      tip: 'Upsell revenue ÷ Total edited order. Average upsell carried by each edited order.' },
   ];
   document.getElementById('kpi-row').innerHTML = cards.map(c => `
     <div class="kpi-card" data-kpi="${c.key}" title="Click to drill into orders · ${c.tip}">
@@ -551,10 +479,7 @@ function renderKpis() {
       const labels = {
         totalEdited: 'Total edited order',
         rescueRevenue: 'Rescue revenue',
-        rescuePerOrder: 'Rescue revenue per edited order',
         upsellRevenue: 'Upsell revenue',
-        upsellConv: 'Upsell conversion rate',
-        upsellPerOrder: 'Upsell per edited order',
       };
       openDrawer({ scope: `KPI · ${labels[k]}`, contextText: 'Scoped by dashboard filters' });
     });
@@ -1493,22 +1418,6 @@ function renderAll() {
     renderDetailTable(currentReportId, currentReportGranularity);
   }
 }
-
-/* =========================================================
-   RELATED PRODUCTS — touchpoint navigation (placeholder)
-   Each tile jumps to the target product's own dashboard home.
-   Current dashboard filters are not carried over because the
-   target products scope their reports differently.
-   ========================================================= */
-document.querySelectorAll('[data-cross-cta]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn.dataset.crossCta;
-    const label  = target === 'tracking' ? 'Tracking' : 'Returns';
-    // eslint-disable-next-line no-console
-    console.log('[related-products] navigate →', { product: label });
-    alert(`Demo: would navigate to the ${label} dashboard home.`);
-  });
-});
 
 // Initial
 renderFilters('dashboard-filters', 'dash');
